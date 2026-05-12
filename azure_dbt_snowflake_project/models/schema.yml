@@ -1,0 +1,154 @@
+version: 2
+
+sources:
+  - name: staging
+    description: "Raw staging schema loaded from ADLS into Snowflake"
+    tables:
+      - name: hosts
+        description: "Host information including superhost status and response rate"
+        columns:
+          - name: host_id
+            description: "Unique identifier for each host"
+            tests:
+              - unique
+              - not_null
+          - name: host_name
+            description: "Name of the host"
+          - name: host_since
+            description: "Date when the host joined Airbnb"
+          - name: is_superhost
+            description: "Boolean flag indicating superhost status"
+          - name: response_rate
+            description: "Percentage response rate of the host"
+          - name: created_at
+            description: "Record creation timestamp"
+
+      - name: listings
+        description: "Listing details including property type, location, and pricing"
+        columns:
+          - name: listing_id
+            description: "Unique identifier for each listing"
+            tests:
+              - unique
+              - not_null
+          - name: host_id
+            description: "Foreign key referencing hosts"
+            tests:
+              - not_null
+          - name: property_type
+            description: "Type of property (apartment, house, etc.)"
+          - name: room_type
+            description: "Room type (entire home, private room, etc.)"
+          - name: city
+            description: "City where the listing is located"
+          - name: country
+            description: "Country where the listing is located"
+          - name: accommodates
+            description: "Number of guests the listing accommodates"
+          - name: bedrooms
+            description: "Number of bedrooms"
+          - name: bathrooms
+            description: "Number of bathrooms"
+          - name: price_per_night
+            description: "Price per night in local currency"
+          - name: created_at
+            description: "Record creation timestamp"
+
+      - name: bookings
+        description: "Booking transactions including fees and status"
+        columns:
+          - name: booking_id
+            description: "Unique identifier for each booking"
+            tests:
+              - unique
+              - not_null
+          - name: listing_id
+            description: "Foreign key referencing listings"
+            tests:
+              - not_null
+          - name: booking_date
+            description: "Date of booking"
+          - name: nights_booked
+            description: "Number of nights booked"
+          - name: booking_amount
+            description: "Base booking amount"
+          - name: cleaning_fee
+            description: "Cleaning fee charged"
+          - name: service_fee
+            description: "Service fee charged"
+          - name: booking_status
+            description: "Status of booking (confirmed, cancelled, etc.)"
+            tests:
+              - accepted_values:
+                  values: ['confirmed', 'cancelled', 'pending']
+          - name: created_at
+            description: "Record creation timestamp"
+
+models:
+  - name: stg_hosts
+    description: "Cleaned staging model for hosts"
+    columns:
+      - name: host_id
+        tests:
+          - unique
+          - not_null
+
+  - name: stg_listings
+    description: "Cleaned staging model for listings"
+    columns:
+      - name: listing_id
+        tests:
+          - unique
+          - not_null
+      - name: host_id
+        tests:
+          - not_null
+
+  - name: stg_bookings
+    description: "Cleaned staging model for bookings"
+    columns:
+      - name: booking_id
+        tests:
+          - unique
+          - not_null
+      - name: listing_id
+        tests:
+          - not_null
+
+  - name: int_listings_hosts
+    description: "Intermediate model joining listings with hosts"
+    columns:
+      - name: listing_id
+        tests:
+          - not_null
+      - name: host_id
+        tests:
+          - not_null
+
+  - name: int_bookings_enriched
+    description: "Intermediate model enriching bookings with listing and host details"
+    columns:
+      - name: booking_id
+        tests:
+          - not_null
+      - name: listing_id
+        tests:
+          - not_null
+
+  - name: booking_summary
+    description: "Mart model summarizing bookings by city and country"
+    columns:
+      - name: city
+      - name: country
+      - name: total_bookings
+      - name: total_revenue
+      - name: avg_booking_amount
+      - name: avg_nights
+
+  - name: superhost_performance
+    description: "Mart model analyzing performance of superhosts"
+    columns:
+      - name: is_superhost
+      - name: total_bookings
+      - name: total_revenue
+      - name: avg_response_rate
