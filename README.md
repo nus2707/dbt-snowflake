@@ -16,11 +16,8 @@ The pipeline follows a **three-layer dbt structure**:
 ---
 
 🔗 Lineage Diagram
-Include the lineage diagram image here:
 
-```
-![Airbnb dbt Project Lineage](path/to/lineage-diagram.png)
-```
+<img width="1536" height="1024" alt="Copilot_20260512_211932" src="https://github.com/user-attachments/assets/73f9fee5-86bb-45cb-8a97-f0f7acb352dc" />
 
 This visual shows how raw data flows from **staging → intermediate → marts**, ensuring transparency and traceability.
 
