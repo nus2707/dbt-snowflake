@@ -1,0 +1,7 @@
+{
+	"name": "dbt-pipeline",
+	"properties": {
+		"description": "Scheduling dbt commands",
+		"annotations": []
+	}
+}
