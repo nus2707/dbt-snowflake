@@ -1,6 +1,12 @@
+{{ config(
+    materialized='incremental',
+    unique_key='booking_id'
+) }}
+
 with enriched as (
     select * from {{ ref('int_bookings_enriched') }}
 )
+
 select
     date_trunc('month', booking_date) as booking_month,
     count(booking_id) as monthly_bookings,
@@ -8,5 +14,11 @@ select
     avg(price_per_night) as avg_price_per_night
 from enriched
 where booking_status = 'confirmed'
+
+{% if is_incremental() %}
+  -- Only add rows newer than the latest booking already in the table
+  and booking_date > (select max(booking_date) from {{ this }})
+{% endif %}
+
 group by booking_month
 order by booking_month
