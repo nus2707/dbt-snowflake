@@ -19,6 +19,7 @@ select
     lh.country,
     lh.host_name,
     lh.is_superhost,
-    lh.response_rate
+    lh.response_rate,
+    lh.price_per_night   -- ✅ Add this column here
 from bookings b
 join listings_hosts lh on b.listing_id = lh.listing_id
