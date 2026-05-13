@@ -1,0 +1,15 @@
+{
+	"name": "dbt-snowflake-pipeline",
+	"properties": {
+		"trustModeClaimForMi": {
+			"value": "Disabled",
+			"editable": true
+		}
+	},
+	"location": "southindia",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "9cf71d0c-e55e-4e3e-a808-b6b51f39a85c",
+		"tenantId": "bfa8d63a-c1db-46f6-8f4c-5a2b94a9dc6b"
+	}
+}
