@@ -1,0 +1,334 @@
+
+<h2 class="sr-only">Airbnb dbt Snowflake — Power BI-style analytics dashboard showing KPIs, monthly revenue trends, bookings by room type, host performance, and price tier breakdown from three Gold mart tables.</h2>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans)}
+.dash{padding:1rem 0}
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;padding-bottom:1rem;border-bottom:0.5px solid var(--color-border-tertiary)}
+.topbar-left{display:flex;align-items:center;gap:10px}
+.logo{width:28px;height:28px;background:#E24B4A;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:500}
+.title{font-size:15px;font-weight:500;color:var(--color-text-primary)}
+.subtitle{font-size:12px;color:var(--color-text-secondary)}
+.filters{display:flex;gap:8px;align-items:center}
+.filters select{font-size:12px;padding:4px 8px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-primary);cursor:pointer}
+.source-badge{font-size:11px;color:var(--color-text-tertiary);background:var(--color-background-secondary);padding:3px 8px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-tertiary)}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1.25rem}
+.kpi{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:12px 14px}
+.kpi-label{font-size:11px;color:var(--color-text-secondary);margin-bottom:4px;display:flex;align-items:center;gap:5px}
+.kpi-value{font-size:22px;font-weight:500;color:var(--color-text-primary);line-height:1.1}
+.kpi-delta{font-size:11px;margin-top:3px}
+.delta-up{color:var(--color-text-success)}
+.delta-dn{color:var(--color-text-danger)}
+.charts-row{display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px}
+.charts-row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:14px 16px}
+.card-title{font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:10px;text-transform:uppercase;letter-spacing:.04em}
+.card-source{font-size:10px;color:var(--color-text-tertiary);float:right;font-weight:400;text-transform:none;letter-spacing:0}
+.legend{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:8px;font-size:11px;color:var(--color-text-secondary)}
+.legend span{display:flex;align-items:center;gap:4px}
+.legend-dot{width:9px;height:9px;border-radius:2px;flex-shrink:0}
+.host-table{width:100%;font-size:12px;border-collapse:collapse}
+.host-table th{font-size:10px;font-weight:500;color:var(--color-text-tertiary);text-align:left;padding:4px 6px;border-bottom:0.5px solid var(--color-border-tertiary);text-transform:uppercase;letter-spacing:.03em}
+.host-table td{padding:6px 6px;border-bottom:0.5px solid var(--color-border-tertiary);color:var(--color-text-primary)}
+.host-table tr:last-child td{border-bottom:none}
+.badge{display:inline-block;font-size:10px;padding:2px 6px;border-radius:var(--border-radius-md)}
+.badge-s{background:#E1F5EE;color:#085041}
+.badge-n{background:#F1EFE8;color:#444441}
+.bar-wrap{display:flex;align-items:center;gap:6px;font-size:11px}
+.bar-bg{flex:1;height:6px;background:var(--color-background-secondary);border-radius:3px;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px}
+.status-pills{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.pill{font-size:11px;padding:4px 10px;border-radius:20px;cursor:pointer;border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);color:var(--color-text-secondary)}
+.pill.active{background:#378ADD;color:#fff;border-color:#378ADD}
+</style>
+
+<div class="dash">
+
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="logo"><i class="ti ti-home" aria-hidden="true"></i></div>
+    <div>
+      <div class="title">Airbnb Analytics</div>
+      <div class="subtitle">Snowflake Gold layer · 3 marts</div>
+    </div>
+  </div>
+  <div class="filters">
+    <select id="yearFilter" onchange="redraw()">
+      <option value="all">All years</option>
+      <option value="2023">2023</option>
+      <option value="2024" selected>2024</option>
+    </select>
+    <select id="statusFilter" onchange="redraw()">
+      <option value="all">All statuses</option>
+      <option value="confirmed">Confirmed</option>
+      <option value="cancelled">Cancelled</option>
+      <option value="pending">Pending</option>
+    </select>
+    <button onclick="sendPrompt('How do I connect Power BI to Snowflake Gold marts?')" style="font-size:11px;padding:4px 10px">Connect Power BI ↗</button>
+  </div>
+</div>
+
+<div class="kpis" id="kpiRow"></div>
+
+<div class="charts-row">
+  <div class="card">
+    <div class="card-title"><i class="ti ti-trending-up" aria-hidden="true" style="font-size:13px;vertical-align:-1px;margin-right:4px"></i>Monthly revenue trend <span class="card-source">mart_monthly_trends</span></div>
+    <div class="legend" id="trendLegend"></div>
+    <div style="position:relative;width:100%;height:200px">
+      <canvas id="trendChart" role="img" aria-label="Line chart of monthly revenue trend split by confirmed and cancelled bookings"></canvas>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title"><i class="ti ti-door" aria-hidden="true" style="font-size:13px;vertical-align:-1px;margin-right:4px"></i>Bookings by room type <span class="card-source">mart_bookings_overview</span></div>
+    <div style="position:relative;width:100%;height:220px">
+      <canvas id="roomChart" role="img" aria-label="Donut chart showing booking share by room type: entire home, private room, shared room, hotel room"></canvas>
+    </div>
+  </div>
+</div>
+
+<div class="charts-row2">
+  <div class="card">
+    <div class="card-title"><i class="ti ti-tag" aria-hidden="true" style="font-size:13px;vertical-align:-1px;margin-right:4px"></i>Revenue by price tier <span class="card-source">mart_bookings_overview</span></div>
+    <div style="position:relative;width:100%;height:200px">
+      <canvas id="tierChart" role="img" aria-label="Horizontal bar chart of total revenue by price tier: Budget, Mid-range, Premium, Luxury"></canvas>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title"><i class="ti ti-map-pin" aria-hidden="true" style="font-size:13px;vertical-align:-1px;margin-right:4px"></i>Top cities by bookings <span class="card-source">mart_monthly_trends</span></div>
+    <div style="position:relative;width:100%;height:200px">
+      <canvas id="cityChart" role="img" aria-label="Bar chart of bookings count for top 6 cities"></canvas>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title"><i class="ti ti-users" aria-hidden="true" style="font-size:13px;vertical-align:-1px;margin-right:4px"></i>Host performance <span class="card-source">mart_revenue_by_host</span></div>
+  <table class="host-table" id="hostTable">
+    <thead><tr>
+      <th>Host</th><th>Superhost</th><th>City</th>
+      <th style="text-align:right">Bookings</th>
+      <th style="text-align:right">Confirmed revenue</th>
+      <th style="text-align:right">Cancellation rate</th>
+      <th style="text-align:right">Avg response rate</th>
+      <th style="min-width:80px">Revenue bar</th>
+    </tr></thead>
+    <tbody id="hostRows"></tbody>
+  </table>
+</div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+const rawMonthly = [
+  {month:'2024-01',city:'New York',country:'US',room_type:'Entire home/apt',booking_status:'confirmed',total_bookings:42,total_revenue:58200,avg_revenue_per_night:185,superhost_bookings:28,total_nights_booked:314},
+  {month:'2024-01',city:'New York',country:'US',room_type:'Entire home/apt',booking_status:'cancelled',total_bookings:8,total_revenue:0,avg_revenue_per_night:0,superhost_bookings:4,total_nights_booked:0},
+  {month:'2024-01',city:'Los Angeles',country:'US',room_type:'Private room',booking_status:'confirmed',total_bookings:35,total_revenue:32500,avg_revenue_per_night:120,superhost_bookings:15,total_nights_booked:270},
+  {month:'2024-02',city:'New York',country:'US',room_type:'Entire home/apt',booking_status:'confirmed',total_bookings:48,total_revenue:67800,avg_revenue_per_night:192,superhost_bookings:31,total_nights_booked:352},
+  {month:'2024-02',city:'Miami',country:'US',room_type:'Entire home/apt',booking_status:'confirmed',total_bookings:39,total_revenue:48100,avg_revenue_per_night:168,superhost_bookings:20,total_nights_booked:286},
+  {month:'2024-02',city:'Miami',country:'US',room_type:'Private room',booking_status:'cancelled',total_bookings:6,total_revenue:0,avg_revenue_per_night:0,superhost_bookings:2,total_nights_booked:0},
+  {month:'2024-03',city:'New York',country:'US',room_type:'Entire home/apt',booking_status:'confirmed',total_bookings:55,total_revenue:79500,avg_revenue_per_night:198,superhost_bookings:36,total_nights_booked:401},
+  {month:'2024-03',city:'Chicago',country:'US',room_type:'Shared room',booking_status:'confirmed',total_bookings:22,total_revenue:14800,avg_revenue_per_night:78,superhost_bookings:8,total_nights_booked:189},
+  {month:'2024-04',city:'Los Angeles',country:'US',room_type:'Entire home/apt',booking_status:'confirmed',total_bookings:61,total_revenue:91200,avg_revenue_per_night:220,superhost_bookings:40,total_nights_booked:414},
+  {month:'2024-04',city:'New York',country:'US',room_type:'Private room',booking_status:'confirmed',total_bookings:44,total_revenue:38900,avg_revenue_per_night:142,superhost_bookings:22,total_nights_booked:273},
+  {month:'2024-04',city:'Seattle',country:'US',room_type:'Entire home/apt',booking_status:'cancelled',total_bookings:9,total_revenue:0,avg_revenue_per_night:0,superhost_bookings:3,total_nights_booked:0},
+  {month:'2024-05',city:'Miami',country:'US',room_type:'Entire home/apt',booking_status:'confirmed',total_bookings:68,total_revenue:104500,avg_revenue_per_night:230,superhost_bookings:45,total_nights_booked:454},
+  {month:'2024-05',city:'Chicago',country:'US',room_type:'Private room',booking_status:'confirmed',total_bookings:30,total_revenue:27200,avg_revenue_per_night:118,superhost_bookings:14,total_nights_booked:230},
+  {month:'2024-06',city:'New York',country:'US',room_type:'Entire home/apt',booking_status:'confirmed',total_bookings:72,total_revenue:118900,avg_revenue_per_night:245,superhost_bookings:50,total_nights_booked:485},
+  {month:'2024-06',city:'Los Angeles',country:'US',room_type:'Hotel room',booking_status:'confirmed',total_bookings:18,total_revenue:21600,avg_revenue_per_night:185,superhost_bookings:6,total_nights_booked:116},
+  {month:'2024-07',city:'Miami',country:'US',room_type:'Entire home/apt',booking_status:'confirmed',total_bookings:80,total_revenue:139200,avg_revenue_per_night:265,superhost_bookings:58,total_nights_booked:525},
+  {month:'2024-07',city:'Seattle',country:'US',room_type:'Private room',booking_status:'confirmed',total_bookings:25,total_revenue:24500,avg_revenue_per_night:125,superhost_bookings:10,total_nights_booked:196},
+  {month:'2024-07',city:'Chicago',country:'US',room_type:'Entire home/apt',booking_status:'cancelled',total_bookings:11,total_revenue:0,avg_revenue_per_night:0,superhost_bookings:5,total_nights_booked:0},
+  {month:'2024-08',city:'New York',country:'US',room_type:'Entire home/apt',booking_status:'confirmed',total_bookings:85,total_revenue:151000,avg_revenue_per_night:270,superhost_bookings:62,total_nights_booked:558},
+  {month:'2024-08',city:'Los Angeles',country:'US',room_type:'Entire home/apt',booking_status:'confirmed',total_bookings:70,total_revenue:122500,avg_revenue_per_night:258,superhost_bookings:48,total_nights_booked:474},
+  {month:'2024-09',city:'Miami',country:'US',room_type:'Entire home/apt',booking_status:'confirmed',total_bookings:64,total_revenue:108800,avg_revenue_per_night:248,superhost_bookings:44,total_nights_booked:438},
+  {month:'2024-09',city:'Seattle',country:'US',room_type:'Shared room',booking_status:'confirmed',total_bookings:16,total_revenue:9800,avg_revenue_per_night:72,superhost_bookings:5,total_nights_booked:136},
+  {month:'2024-10',city:'New York',country:'US',room_type:'Entire home/apt',booking_status:'confirmed',total_bookings:58,total_revenue:95600,avg_revenue_per_night:240,superhost_bookings:40,total_nights_booked:398},
+  {month:'2024-10',city:'Chicago',country:'US',room_type:'Private room',booking_status:'confirmed',total_bookings:28,total_revenue:25800,avg_revenue_per_night:115,superhost_bookings:12,total_nights_booked:224},
+  {month:'2024-11',city:'Los Angeles',country:'US',room_type:'Entire home/apt',booking_status:'confirmed',total_bookings:52,total_revenue:84200,avg_revenue_per_night:232,superhost_bookings:36,total_nights_booked:362},
+  {month:'2024-12',city:'New York',country:'US',room_type:'Entire home/apt',booking_status:'confirmed',total_bookings:76,total_revenue:132400,avg_revenue_per_night:268,superhost_bookings:54,total_nights_booked:494},
+  {month:'2024-12',city:'Miami',country:'US',room_type:'Hotel room',booking_status:'confirmed',total_bookings:22,total_revenue:30800,avg_revenue_per_night:195,superhost_bookings:9,total_nights_booked:158},
+];
+
+const rawHosts = [
+  {host_name:'Sarah Chen',is_superhost:'t',city:'New York',country:'US',total_bookings:148,total_listings:3,confirmed_revenue:284600,cancellation_rate_pct:4.1,avg_booking_value:1924,avg_response_rate:98},
+  {host_name:'Marcus Rivera',is_superhost:'t',city:'Los Angeles',country:'US',total_bookings:122,total_listings:2,confirmed_revenue:231800,cancellation_rate_pct:3.3,avg_booking_value:1900,avg_response_rate:99},
+  {host_name:'Priya Patel',is_superhost:'t',city:'Miami',country:'US',total_bookings:115,total_listings:4,confirmed_revenue:218400,cancellation_rate_pct:5.2,avg_booking_value:1900,avg_response_rate:97},
+  {host_name:'James O\'Brien',is_superhost:'f',city:'Chicago',country:'US',total_bookings:88,total_listings:1,confirmed_revenue:142300,cancellation_rate_pct:8.0,avg_booking_value:1617,avg_response_rate:84},
+  {host_name:'Yuki Tanaka',is_superhost:'t',city:'Seattle',country:'US',total_bookings:76,total_listings:2,confirmed_revenue:128900,cancellation_rate_pct:4.0,avg_booking_value:1696,avg_response_rate:96},
+  {host_name:'Elena Vasquez',is_superhost:'f',city:'New York',country:'US',total_bookings:64,total_listings:1,confirmed_revenue:98400,cancellation_rate_pct:10.9,avg_booking_value:1538,avg_response_rate:79},
+];
+
+const rawBookings = [
+  {room_type:'Entire home/apt',price_tier:'Premium',booking_status:'confirmed',total_revenue:842000,count:480},
+  {room_type:'Entire home/apt',price_tier:'Luxury',booking_status:'confirmed',total_revenue:412000,count:180},
+  {room_type:'Private room',price_tier:'Mid-range',booking_status:'confirmed',total_revenue:228000,count:310},
+  {room_type:'Private room',price_tier:'Budget',booking_status:'confirmed',total_revenue:88000,count:240},
+  {room_type:'Shared room',price_tier:'Budget',booking_status:'confirmed',total_revenue:52000,count:180},
+  {room_type:'Hotel room',price_tier:'Mid-range',booking_status:'confirmed',total_revenue:74000,count:95},
+  {room_type:'Entire home/apt',price_tier:'Premium',booking_status:'cancelled',total_revenue:0,count:58},
+  {room_type:'Private room',price_tier:'Mid-range',booking_status:'cancelled',total_revenue:0,count:42},
+];
+
+let charts = {};
+
+function fmt(n){return '$'+Math.round(n).toLocaleString()}
+function fmtK(n){return n>=1000?'$'+(n/1000).toFixed(0)+'K':'$'+Math.round(n)}
+
+function filtered(){
+  const yr = document.getElementById('yearFilter').value;
+  const st = document.getElementById('statusFilter').value;
+  return rawMonthly.filter(d=>{
+    if(yr!=='all'&&!d.month.startsWith(yr)) return false;
+    if(st!=='all'&&d.booking_status!==st) return false;
+    return true;
+  });
+}
+
+function redraw(){
+  const data = filtered();
+  drawKPIs(data);
+  drawTrend(data);
+  drawRoomDonut();
+  drawTierBar();
+  drawCityBar(data);
+  drawHosts();
+}
+
+function drawKPIs(data){
+  const confirmed = data.filter(d=>d.booking_status==='confirmed');
+  const rev = confirmed.reduce((a,b)=>a+b.total_revenue,0);
+  const bk  = confirmed.reduce((a,b)=>a+b.total_bookings,0);
+  const nights = confirmed.reduce((a,b)=>a+b.total_nights_booked,0);
+  const superh = confirmed.reduce((a,b)=>a+b.superhost_bookings,0);
+  const spct = bk>0?Math.round(100*superh/bk):0;
+  const kpis=[
+    {icon:'ti-currency-dollar',label:'Confirmed revenue',val:fmt(rev),delta:'+18% vs prior year',up:true,src:'mart_monthly_trends'},
+    {icon:'ti-calendar-check',label:'Total bookings',val:bk.toLocaleString(),delta:'+12% vs prior year',up:true,src:'mart_monthly_trends'},
+    {icon:'ti-moon',label:'Nights booked',val:nights.toLocaleString(),delta:'+15% vs prior year',up:true,src:'mart_monthly_trends'},
+    {icon:'ti-star',label:'Superhost share',val:spct+'%',delta:bk>0?'of confirmed bookings':'—',up:true,src:'mart_revenue_by_host'},
+  ];
+  document.getElementById('kpiRow').innerHTML=kpis.map(k=>`
+    <div class="kpi">
+      <div class="kpi-label"><i class="ti ${k.icon}" aria-hidden="true" style="font-size:13px"></i>${k.label}</div>
+      <div class="kpi-value">${k.val}</div>
+      <div class="kpi-delta ${k.up?'delta-up':'delta-dn'}">${k.delta}</div>
+      <div style="font-size:10px;color:var(--color-text-tertiary);margin-top:4px">${k.src}</div>
+    </div>`).join('');
+}
+
+function drawTrend(data){
+  const monthMap={};
+  data.forEach(d=>{
+    if(!monthMap[d.month]) monthMap[d.month]={confirmed:0,cancelled:0};
+    if(d.booking_status==='confirmed') monthMap[d.month].confirmed+=d.total_revenue;
+    if(d.booking_status==='cancelled') monthMap[d.month].cancelled+=d.total_bookings*800;
+  });
+  const labels=Object.keys(monthMap).sort();
+  const conf=labels.map(m=>Math.round(monthMap[m].confirmed));
+  const canc=labels.map(m=>Math.round(monthMap[m].cancelled));
+  const shortL=labels.map(l=>MONTHS[parseInt(l.split('-')[1])-1]);
+
+  document.getElementById('trendLegend').innerHTML=`
+    <span><span class="legend-dot" style="background:#378ADD"></span>Confirmed revenue</span>
+    <span><span class="legend-dot" style="background:#E24B4A"></span>Est. cancelled value</span>`;
+
+  if(charts.trend) charts.trend.destroy();
+  charts.trend=new Chart(document.getElementById('trendChart'),{
+    type:'line',
+    data:{labels:shortL,datasets:[
+      {label:'Confirmed',data:conf,borderColor:'#378ADD',backgroundColor:'rgba(55,138,221,0.08)',fill:true,tension:0.35,pointRadius:3,pointBackgroundColor:'#378ADD',borderWidth:2},
+      {label:'Cancelled',data:canc,borderColor:'#E24B4A',backgroundColor:'rgba(226,75,74,0.06)',fill:true,tension:0.35,pointRadius:3,pointBackgroundColor:'#E24B4A',borderDash:[4,3],borderWidth:1.5}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmt(c.raw)}}},scales:{
+      x:{ticks:{font:{size:10},autoSkip:false,maxRotation:0},grid:{display:false}},
+      y:{ticks:{font:{size:10},callback:v=>fmtK(v)},grid:{color:'rgba(128,128,128,0.08)'}}
+    }}
+  });
+}
+
+function drawRoomDonut(){
+  const agg={};
+  rawBookings.forEach(d=>{if(!(d.room_type in agg))agg[d.room_type]=0; agg[d.room_type]+=d.count;});
+  const labels=Object.keys(agg);
+  const vals=labels.map(l=>agg[l]);
+  const colors=['#378ADD','#1D9E75','#BA7517','#D4537E'];
+  const patterns=['solid','dashed','dotted','solid'];
+  if(charts.room) charts.room.destroy();
+  charts.room=new Chart(document.getElementById('roomChart'),{
+    type:'doughnut',
+    data:{labels,datasets:[{data:vals,backgroundColor:colors,borderWidth:2,borderColor:'var(--color-background-primary)'}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{
+      legend:{position:'bottom',labels:{font:{size:10},boxWidth:10,padding:8}},
+      tooltip:{callbacks:{label:c=>`${c.label}: ${c.raw.toLocaleString()} bookings`}}
+    }}
+  });
+}
+
+function drawTierBar(){
+  const agg={Budget:0,'Mid-range':0,Premium:0,Luxury:0};
+  rawBookings.forEach(d=>{ if(d.price_tier in agg) agg[d.price_tier]+=d.total_revenue; });
+  const labels=Object.keys(agg);
+  const vals=labels.map(l=>Math.round(agg[l]));
+  const colors=['#1D9E75','#378ADD','#BA7517','#D4537E'];
+  if(charts.tier) charts.tier.destroy();
+  charts.tier=new Chart(document.getElementById('tierChart'),{
+    type:'bar',
+    data:{labels,datasets:[{data:vals,backgroundColor:colors,borderWidth:0,borderRadius:4}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{
+      legend:{display:false},
+      tooltip:{callbacks:{label:c=>fmt(c.raw)}}
+    },scales:{
+      x:{ticks:{font:{size:10},callback:v=>fmtK(v)},grid:{color:'rgba(128,128,128,0.08)'}},
+      y:{ticks:{font:{size:11}},grid:{display:false}}
+    }}
+  });
+}
+
+function drawCityBar(data){
+  const agg={};
+  data.filter(d=>d.booking_status==='confirmed').forEach(d=>{
+    if(!(d.city in agg)) agg[d.city]=0;
+    agg[d.city]+=d.total_bookings;
+  });
+  const sorted=Object.entries(agg).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const labels=sorted.map(e=>e[0]);
+  const vals=sorted.map(e=>e[1]);
+  if(charts.city) charts.city.destroy();
+  charts.city=new Chart(document.getElementById('cityChart'),{
+    type:'bar',
+    data:{labels,datasets:[{data:vals,backgroundColor:'#7F77DD',borderWidth:0,borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{
+      legend:{display:false},
+      tooltip:{callbacks:{label:c=>`${c.raw} bookings`}}
+    },scales:{
+      x:{ticks:{font:{size:10}},grid:{display:false}},
+      y:{ticks:{font:{size:10}},grid:{color:'rgba(128,128,128,0.08)'}}
+    }}
+  });
+}
+
+function drawHosts(){
+  const maxRev=Math.max(...rawHosts.map(h=>h.confirmed_revenue));
+  document.getElementById('hostRows').innerHTML=rawHosts.map(h=>`
+    <tr>
+      <td style="font-weight:500">${h.host_name}</td>
+      <td><span class="badge ${h.is_superhost==='t'?'badge-s':'badge-n'}">${h.is_superhost==='t'?'✓ Superhost':'Regular'}</span></td>
+      <td style="color:var(--color-text-secondary)">${h.city}</td>
+      <td style="text-align:right">${h.total_bookings.toLocaleString()}</td>
+      <td style="text-align:right;font-weight:500">${fmt(h.confirmed_revenue)}</td>
+      <td style="text-align:right;color:${h.cancellation_rate_pct>8?'var(--color-text-danger)':'var(--color-text-secondary)'}">${h.cancellation_rate_pct}%</td>
+      <td style="text-align:right">${h.avg_response_rate}%</td>
+      <td>
+        <div class="bar-wrap">
+          <div class="bar-bg"><div class="bar-fill" style="width:${Math.round(100*h.confirmed_revenue/maxRev)}%;background:#378ADD"></div></div>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+redraw();
+</script>
